@@ -607,6 +607,24 @@ h1, h2, h3, h4, p { margin: 0; }
 }
 .demo:hover .demo-play { transform: scale(1); background: var(--accent); }
 
+/* Demos that open their own page get an arrow instead of a play button */
+.demo-open {
+  position: absolute;
+  left: 20px;
+  bottom: 20px;
+  display: grid;
+  place-items: center;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--bg);
+  font-size: 22px;
+  transform: scale(0.85);
+  transition: transform 0.6s var(--ease), background 0.3s;
+}
+.demo:hover .demo-open { transform: scale(1) rotate(45deg); background: var(--accent); }
+
 .demo-info { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; padding-top: 18px; }
 .demo-title { font-size: clamp(20px, 2vw, 28px); font-weight: 500; letter-spacing: -0.025em; }
 .demo-tag { color: var(--muted); text-align: right; }

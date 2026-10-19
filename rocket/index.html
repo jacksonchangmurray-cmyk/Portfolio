@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Macroplastic V1 · Jackson Chang Murray</title>
+  <meta name="description" content="Interactive 3D model and live wind tunnel simulation of the Macroplastic V1 model rocket.">
+  <meta name="theme-color" content="#0d0d0c">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="rocket.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+  <script type="module" src="rocket.js"></script>
+</head>
+<body>
+
+  <canvas id="scene" aria-label="Interactive 3D model of the Macroplastic V1 rocket"></canvas>
+  <p class="loading mono">Loading model…</p>
+
+  <header class="top">
+    <a class="back mono" href="../">← Jackson Chang Murray</a>
+    <div class="title">
+      <p class="kicker mono">Model rocket · Designed in Fusion 360</p>
+      <h1>Macroplastic <em>V1</em></h1>
+    </div>
+    <div class="modes" role="tablist" aria-label="View">
+      <button type="button" role="tab" aria-selected="true" data-mode="parts">Parts</button>
+      <button type="button" role="tab" aria-selected="false" data-mode="tunnel">Wind tunnel</button>
+    </div>
+  </header>
+
+  <aside class="panel">
+    <ul class="specs mono">
+      <li><b>1035</b> mm tall</li>
+      <li><b>Ø100</b> mm</li>
+      <li><b>3</b> fins</li>
+      <li><b>8</b> parts</li>
+    </ul>
+
+    <!-- Parts view -->
+    <section class="view" data-view="parts">
+      <p class="hint">Hover a part to pull it out. Drag to spin, scroll to zoom.</p>
+      <ol class="part-list"></ol>
+      <div class="detail" hidden>
+        <p class="detail-size mono"></p>
+        <p class="detail-about"></p>
+      </div>
+      <button class="btn" type="button" data-act="explode">Explode all</button>
+      <div class="group">
+        <h2 class="mono group-title">Paint scheme</h2>
+        <div class="swatches"></div>
+      </div>
+    </section>
+
+    <!-- Wind tunnel -->
+    <section class="view" data-view="tunnel" hidden>
+      <p class="hint">A live fluid simulation of air flowing past your rocket, like a wind tunnel. Smoke threads show the airflow; the colored slice shows what the air is doing.</p>
+
+      <div class="group">
+        <label class="slider">
+          <span>Airspeed <output data-out="speed"></output></span>
+          <input type="range" min="10" max="120" step="1" value="40" data-input="speed">
+        </label>
+        <label class="slider">
+          <span>Angle of attack <output data-out="pitch"></output></span>
+          <input type="range" min="-20" max="20" step="1" value="0" data-input="pitch">
+        </label>
+        <div class="roll">
+          <label class="slider">
+            <span>Wind direction around the rocket <output data-out="roll"></output></span>
+            <input type="range" min="0" max="359" step="1" value="0" data-input="roll">
+          </label>
+          <span class="compass" aria-hidden="true"><span class="compass-needle"></span></span>
+        </div>
+      </div>
+
+      <div class="group">
+        <h2 class="mono group-title">Show</h2>
+        <div class="segmented" role="group" aria-label="Field">
+          <button type="button" data-field="velocity" aria-pressed="true">Air speed</button>
+          <button type="button" data-field="pressure" aria-pressed="false">Pressure</button>
+          <button type="button" data-field="vorticity" aria-pressed="false">Vorticity</button>
+        </div>
+        <div class="colorbar">
+          <span class="colorbar-title mono"></span>
+          <canvas width="256" height="1"></canvas>
+          <span class="colorbar-ticks mono"><span class="colorbar-lo"></span><span class="colorbar-mid"></span><span class="colorbar-hi"></span></span>
+        </div>
+        <div class="toggles">
+          <label class="check"><input type="checkbox" checked data-layer="smoke"> Smoke</label>
+          <label class="check"><input type="checkbox" checked data-layer="slice"> Flow slice</label>
+          <label class="check"><input type="checkbox" checked data-layer="surface"> Surface pressure</label>
+        </div>
+      </div>
+
+      <div class="group">
+        <h2 class="mono group-title">Forces</h2>
+        <div class="chart">
+          <canvas></canvas>
+          <span class="chart-key mono"><span class="key-drag">Drag <b data-out="cd">–</b></span><span class="key-lift">Lift <b data-out="cl">–</b></span></span>
+        </div>
+        <dl class="readouts">
+          <div><dt class="mono">Dynamic pressure</dt><dd data-out="q">–</dd></div>
+          <div><dt class="mono">Reynolds (real flight)</dt><dd data-out="re">–</dd></div>
+          <div><dt class="mono">Reynolds (simulated)</dt><dd data-out="resim">–</dd></div>
+          <div><dt class="mono">Solver</dt><dd data-out="sps">–</dd></div>
+        </dl>
+        <div class="row">
+          <button class="btn ghost" type="button" data-act="pause">Pause</button>
+          <button class="btn ghost" type="button" data-act="reset">Restart flow</button>
+        </div>
+      </div>
+
+      <div class="group cp">
+        <h2 class="mono group-title">Center of pressure</h2>
+        <p class="cp-value"></p>
+        <p class="small">Where the air's push on the rocket balances out, worked out from your fins and nose cone (Barrowman method). It's the orange ring on the model.</p>
+        <label class="check"><input type="checkbox" data-input="cg"> Show my center of gravity</label>
+        <div class="cg" hidden>
+          <label class="slider">
+            <span>Balance point from the nose tip <output data-out="cg"></output></span>
+            <input type="range" min="300" max="950" step="5" value="600" data-input="cgpos">
+          </label>
+          <p class="stability"></p>
+          <p class="small">Balance the finished rocket (motor in) on your finger and measure from the tip. A stable rocket has its center of gravity at least one body width (100 mm) ahead of the center of pressure.</p>
+        </div>
+      </div>
+
+      <p class="small note">How it works: a lattice Boltzmann fluid solver (with a Smagorinsky turbulence model) runs live on a 2D slice through the rocket's centerline, using its real outline from the STEP file. Drag and lift coefficients come from the force of the air on that outline. To run in real time it simulates thicker air than real flight (a lower Reynolds number), so treat the numbers as trends; the flow patterns (stagnation at the nose, separation and vortex shedding behind the base) are the real thing.</p>
+    </section>
+
+    <p class="credit small">Converted from the original STEP file with OpenCascade. Rendered with three.js.</p>
+  </aside>
+
+  <!-- Callout for the selected part -->
+  <svg class="leaders" aria-hidden="true"><path class="leader"/><circle class="leader-dot" r="3.5"/></svg>
+  <div class="callout" hidden>
+    <span class="callout-num mono"></span>
+    <strong class="callout-name"></strong>
+    <span class="callout-size mono"></span>
+    <p class="callout-about"></p>
+  </div>
+  <div class="badges" aria-hidden="true"></div>
+  <span class="ring-label mono" data-ring="cp" hidden>Center of pressure</span>
+  <span class="ring-label mono" data-ring="cg" hidden>Center of gravity</span>
+
+</body>
+</html>

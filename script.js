@@ -154,7 +154,8 @@ function setupDemos() {
   const dialog = $(".lightbox");
   const frame = $(".lightbox-frame");
 
-  $$(".demo").forEach((demo) => {
+  // Demos that link to their own page (<a class="demo">) just navigate
+  $$("button.demo").forEach((demo) => {
     const src = demo.dataset.video;
 
     // Silent preview on hover when the demo has a video file

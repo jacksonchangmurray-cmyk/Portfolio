@@ -255,7 +255,7 @@
 
   // Links, demos and research titles open in the panel instead of doing their normal thing
   main.addEventListener("click", (e) => {
-    const demo = e.target.closest(".demo");
+    const demo = e.target.closest("button.demo"); // linked demos are edited as links
     const head = e.target.closest(".study-head");
     const link = e.target.closest("a");
     const media = e.target.closest(".project-media");
