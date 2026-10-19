@@ -10,7 +10,8 @@ const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const finePointer = matchMedia("(hover: hover) and (pointer: fine)").matches;
-const motion = !!(window.gsap && window.ScrollTrigger) && !reduceMotion;
+const editMode = new URLSearchParams(location.search).has("edit"); // visual editor, see editor.js
+const motion = !!(window.gsap && window.ScrollTrigger) && !reduceMotion && !editMode;
 
 let lenis = null;
 
@@ -19,7 +20,8 @@ $("#year").textContent = new Date().getFullYear();
 setupMenu();
 setupResearch();
 setupDemos();
-setupHeroField();
+if (editMode) loadEditor();
+else setupHeroField();
 
 if (motion) {
   gsap.registerPlugin(ScrollTrigger);
@@ -40,6 +42,17 @@ if (motion) {
 }
 
 /* ---------- Helpers ---------- */
+
+// The editor only loads for ?edit, so visitors never download it
+function loadEditor() {
+  const css = document.createElement("link");
+  css.rel = "stylesheet";
+  css.href = "editor.css";
+  document.head.appendChild(css);
+  const js = document.createElement("script");
+  js.src = "editor.js";
+  document.body.appendChild(js);
+}
 
 // Wrap each letter in a span so it can move on its own
 function splitChars(el) {

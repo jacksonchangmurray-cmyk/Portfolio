@@ -1,9 +1,29 @@
 # Portfolio
 
 My personal site: games, software, research and résumé.
-Live at https://jacksonchangmurray-cmyk.github.io/Portfolio/
+Live at https://jacksonchangmurray.com
 
 Plain HTML, CSS and JavaScript. No build step: edit a file, push, and GitHub Pages updates in a minute or two.
+
+## Visual editor
+
+Go to **https://jacksonchangmurray.com/?edit** to change the site right on the page.
+
+- **Text:** click any text and type. Grey `[placeholder]` text turns normal once you replace it.
+- **Lists:** hover over a project, research entry, demo, résumé row, skill or link to move it ↑ ↓, duplicate ⧉ or delete ✕ it. Counts like "(03)" update themselves.
+- **Links, images and videos:** click a link, an image area, a demo, a research title or the résumé button, and edit it in the side panel. Large photos are scaled down automatically.
+- **Publish:** saves to GitHub. The live site updates about a minute later (a hard refresh, Ctrl+Shift+R, may be needed to see it).
+
+The first time you publish, the editor asks for a GitHub token:
+
+1. Open [New fine-grained token](https://github.com/settings/personal-access-tokens/new).
+2. Name it "Portfolio editor". Under **Repository access**, pick **Only select repositories → Portfolio**.
+3. Under **Permissions → Repository permissions**, set **Contents** to **Read and write**.
+4. Generate it, copy it and paste it into the editor.
+
+The token is saved only in that browser. Use **Sign out of GitHub** in the editor panel, or revoke the token on GitHub, to remove access. Anyone can open `?edit` and try things out, but nothing is published without your token.
+
+The editor changes what's inside `<main>` in `index.html`. For the header, footer, colors or animations, edit the files directly.
 
 ## Editing content
 
