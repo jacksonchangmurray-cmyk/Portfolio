@@ -4,220 +4,476 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Jackson Chang Murray</title>
-  <meta name="description" content="Portfolio of Jackson Chang Murray: games, software and more.">
+  <meta name="description" content="Jackson Chang Murray: games, software and science research.">
+  <meta name="theme-color" content="#0d0d0c">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter+Tight:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
-  <script>
-    // Apply a saved light/dark choice before the page draws, so it doesn't flash.
-    try {
-      var saved = localStorage.getItem("theme");
-      if (saved) document.documentElement.setAttribute("data-theme", saved);
-    } catch (e) {}
-  </script>
+  <script>document.documentElement.classList.add("js");</script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/lenis@1.1.13/dist/lenis.min.js"></script>
+  <script defer src="script.js"></script>
 </head>
 <body>
 
+  <!--
+    HOW TO EDIT: search this file for "EDIT". Every spot you need to change
+    has a comment above it. Grey text on the page means "replace me".
+  -->
+
+  <div class="progress" aria-hidden="true"></div>
+  <div class="cursor" aria-hidden="true"><span class="cursor-label"></span></div>
+
   <!-- ===== NAVIGATION ===== -->
   <header class="nav">
-    <div class="container nav-inner">
-      <a href="#top" class="logo">JCM</a>
-      <nav class="nav-links" id="nav-links">
-        <a href="#about">About</a>
-        <a href="#projects">Projects</a>
-        <a href="#skills">Skills</a>
-        <a href="#experience">Experience</a>
-        <a href="#contact">Contact</a>
-      </nav>
-      <div class="nav-actions">
-        <button class="icon-btn" id="theme-toggle" aria-label="Switch light/dark mode">
-          <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
-          <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
-        </button>
-        <button class="icon-btn menu-btn" id="menu-toggle" aria-label="Open menu" aria-expanded="false" aria-controls="nav-links">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
-        </button>
-      </div>
-    </div>
+    <a href="#top" class="nav-logo" data-magnetic>JCM</a>
+    <p class="nav-status mono"><span class="dot"></span>Open to internships &amp; research</p>
+    <nav class="nav-links mono" aria-label="Main">
+      <a class="u" href="#about">About</a>
+      <a class="u" href="#research">Research</a>
+      <a class="u" href="#work">Projects</a>
+      <a class="u" href="#demos">Demos</a>
+      <a class="u" href="#resume">Résumé</a>
+      <a class="u" href="#contact">Contact</a>
+    </nav>
+    <button class="menu-btn mono" type="button" aria-expanded="false" aria-controls="menu">Menu</button>
   </header>
+
+  <!-- Full-screen menu on phones -->
+  <div class="menu" id="menu" hidden>
+    <nav aria-label="Mobile">
+      <a href="#about"><span class="mono">01</span>About</a>
+      <a href="#research"><span class="mono">02</span>Research</a>
+      <a href="#work"><span class="mono">03</span>Projects</a>
+      <a href="#demos"><span class="mono">04</span>Demos</a>
+      <a href="#resume"><span class="mono">05</span>Résumé</a>
+      <a href="#contact"><span class="mono">06</span>Contact</a>
+    </nav>
+    <p class="menu-foot mono">Games · Software · Research</p>
+  </div>
 
   <main id="top">
 
     <!-- ===== HERO ===== -->
     <section class="hero">
-      <div class="container">
-        <p class="eyebrow">Hi, I'm</p>
-        <h1>Jackson Chang Murray</h1>
-        <!-- EDIT: one sentence about what you do -->
-        <p class="hero-text">I make games and write software. I'm a student who likes building things people can play with and use.</p>
-        <div class="hero-buttons">
-          <a href="#projects" class="btn btn-primary">See my work</a>
-          <a href="#contact" class="btn btn-ghost">Get in touch</a>
-        </div>
+      <canvas class="hero-field" aria-hidden="true"></canvas>
+
+      <div class="hero-top mono">
+        <span>Portfolio</span>
+        <span>Games · Software · Research</span>
+        <span>©2026</span>
+      </div>
+
+      <h1 class="hero-name" aria-label="Jackson Chang Murray">
+        <span class="hero-line" aria-hidden="true">Jackson</span>
+        <span class="hero-line serif" aria-hidden="true">Chang</span>
+        <span class="hero-line" aria-hidden="true">Murray</span>
+      </h1>
+
+      <div class="hero-bottom">
+        <!-- EDIT: one or two sentences about what you do -->
+        <p class="hero-intro">I make games, write software and do science research. I like building things people can play with, use and learn from.</p>
+        <span class="scroll-cue mono">Scroll <span class="scroll-line"></span></span>
       </div>
     </section>
 
-    <!-- ===== ABOUT ===== -->
-    <section id="about" class="section">
-      <div class="container about-grid">
-        <div>
-          <h2 class="section-title">About me</h2>
-          <!-- EDIT: a short intro. 2–4 sentences is plenty. -->
-          <p>I started making games because I wanted to play things that didn't exist yet. Since then I've built games, small apps and tools, and I'm always learning something new.</p>
-          <p>When I'm not coding, I'm <span class="placeholder">[a hobby or two]</span>.</p>
-        </div>
-        <ul class="facts">
+    <!-- ===== 01 ABOUT ===== -->
+    <section id="about" class="section about">
+      <p class="label mono" data-reveal>(01) About</p>
+
+      <!-- EDIT: your intro. Words inside <em> show in the italic serif font. -->
+      <p class="statement" data-split-words>I started making games because I wanted to play things that didn't exist yet. Since then I've built games, apps and tools, gotten into research, <em>and I'm always learning something new.</em></p>
+
+      <div class="about-grid">
+        <!-- EDIT: a bit more about you -->
+        <p class="about-text" data-reveal>When I'm not coding or in the lab, I'm <span class="placeholder">[a hobby or two]</span>.</p>
+        <dl class="facts">
           <!-- EDIT: quick facts -->
-          <li><span>Based in</span><strong class="placeholder">[Your city]</strong></li>
-          <li><span>Studying at</span><strong class="placeholder">[Your school]</strong></li>
-          <li><span>Currently learning</span><strong class="placeholder">[Something new]</strong></li>
-          <li><span>Open to</span><strong>Projects, internships, collabs</strong></li>
-        </ul>
+          <div data-reveal><dt class="mono">Based in</dt><dd class="placeholder">[Your city]</dd></div>
+          <div data-reveal><dt class="mono">Studying at</dt><dd class="placeholder">[Your school]</dd></div>
+          <div data-reveal><dt class="mono">Interests</dt><dd class="placeholder">[Your research interests]</dd></div>
+          <div data-reveal><dt class="mono">Open to</dt><dd>Internships, research, collabs</dd></div>
+        </dl>
       </div>
     </section>
 
-    <!-- ===== PROJECTS ===== -->
-    <section id="projects" class="section">
-      <div class="container">
-        <div class="section-head">
-          <h2 class="section-title">Projects</h2>
-          <div class="filters" role="group" aria-label="Filter projects">
-            <button class="filter active" data-filter="all">All</button>
-            <button class="filter" data-filter="game">Games</button>
-            <button class="filter" data-filter="software">Software</button>
-          </div>
-        </div>
+    <!-- ===== 02 RESEARCH ===== -->
+    <section id="research" class="section research">
+      <div class="section-head">
+        <p class="label mono" data-reveal>(02) Research</p>
+        <h2 class="section-title">Research<sup class="mono">(03)</sup></h2>
+        <p class="section-intro" data-reveal>Questions I've investigated, how I tested them and what I found.</p>
+      </div>
 
-        <div class="project-grid">
+      <!--
+        EDIT: one <li class="study"> per paper, poster or project.
+        Add the word "open" to class="study" to show its details from the start.
+      -->
+      <ul class="research-list">
+        <li class="study open">
+          <button class="study-head" type="button" aria-expanded="true">
+            <span class="study-year mono">2025</span>
+            <span class="study-title">Research project title</span>
+            <span class="study-venue mono placeholder">[Lab or program]</span>
+            <span class="study-toggle" aria-hidden="true"></span>
+          </button>
+          <div class="study-body">
+            <div class="study-inner">
+              <div class="study-content">
+                <p class="study-abstract">Two or three sentences: the question you asked, what you did, and what you found. Lead with why it matters.</p>
+                <dl class="study-meta">
+                  <div><dt class="mono">Role</dt><dd>Student researcher</dd></div>
+                  <div><dt class="mono">Advisor</dt><dd class="placeholder">[Name]</dd></div>
+                  <div><dt class="mono">Field</dt><dd class="placeholder">[Field]</dd></div>
+                </dl>
+                <div class="study-links mono">
+                  <a class="u" href="#">Paper ↗</a>
+                  <a class="u" href="#">Poster ↗</a>
+                  <a class="u" href="#">Code ↗</a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </li>
+
+        <li class="study">
+          <button class="study-head" type="button" aria-expanded="false">
+            <span class="study-year mono">2024</span>
+            <span class="study-title">Science fair or independent study</span>
+            <span class="study-venue mono placeholder">[Competition]</span>
+            <span class="study-toggle" aria-hidden="true"></span>
+          </button>
+          <div class="study-body">
+            <div class="study-inner">
+              <div class="study-content">
+                <p class="study-abstract">What you studied, your method and your result. Mention any award or placement.</p>
+                <dl class="study-meta">
+                  <div><dt class="mono">Role</dt><dd>Independent researcher</dd></div>
+                  <div><dt class="mono">Result</dt><dd class="placeholder">[Award or placement]</dd></div>
+                </dl>
+                <div class="study-links mono">
+                  <a class="u" href="#">Report ↗</a>
+                  <a class="u" href="#">Slides ↗</a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </li>
+
+        <li class="study">
+          <button class="study-head" type="button" aria-expanded="false">
+            <span class="study-year mono">2024</span>
+            <span class="study-title">Poster or presentation</span>
+            <span class="study-venue mono placeholder">[Conference]</span>
+            <span class="study-toggle" aria-hidden="true"></span>
+          </button>
+          <div class="study-body">
+            <div class="study-inner">
+              <div class="study-content">
+                <p class="study-abstract">Where you presented, who the audience was, and the main takeaway of your work.</p>
+                <dl class="study-meta">
+                  <div><dt class="mono">Role</dt><dd>Presenter</dd></div>
+                  <div><dt class="mono">Format</dt><dd>Poster</dd></div>
+                </dl>
+                <div class="study-links mono">
+                  <a class="u" href="#">Poster ↗</a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </li>
+      </ul>
+    </section>
+
+    <!-- ===== 03 PROJECTS ===== -->
+    <section id="work" class="work">
+      <div class="section-head work-intro">
+        <p class="label mono" data-reveal>(03) Projects</p>
+        <h2 class="section-title">Projects<sup class="mono">(04)</sup></h2>
+      </div>
+
+      <div class="work-pin">
+        <div class="work-track">
           <!--
             EDIT: one <article> per project.
-            - data-category: "game" or "software"
-            - To use a screenshot, replace the <div class="thumb ..."> with:
-              <img class="thumb" src="images/your-image.png" alt="Screenshot of ...">
+            To use a screenshot, replace the whole <div class="media-inner media-placeholder">...</div> with:
+              <div class="media-inner"><img src="images/your-image.jpg" alt="Screenshot of ..."></div>
           -->
-          <article class="card" data-category="game">
-            <div class="thumb thumb-a">G1</div>
-            <div class="card-body">
+          <article class="project">
+            <div class="project-media">
+              <div class="media-inner media-placeholder"><span class="mono">Screenshot<br>images/project-01.jpg</span></div>
+            </div>
+            <div class="project-info">
+              <span class="project-num mono">01</span>
               <h3>Game project name</h3>
+              <dl class="project-meta">
+                <div><dt class="mono">Year</dt><dd>2025</dd></div>
+                <div><dt class="mono">Role</dt><dd>Solo developer</dd></div>
+                <div><dt class="mono">Built with</dt><dd>Roblox, Luau</dd></div>
+              </dl>
               <p>What the game is, what you built and what you learned. Keep it to two sentences.</p>
-              <ul class="tags"><li>Roblox</li><li>Luau</li></ul>
-              <div class="card-links">
-                <a href="#">Play</a>
-                <a href="#">Video</a>
+              <div class="project-links mono">
+                <a class="u" href="#">Play ↗</a>
+                <a class="u" href="#">Video ↗</a>
               </div>
             </div>
           </article>
 
-          <article class="card" data-category="game">
-            <div class="thumb thumb-b">G2</div>
-            <div class="card-body">
+          <article class="project">
+            <div class="project-media">
+              <div class="media-inner media-placeholder"><span class="mono">Screenshot<br>images/project-02.jpg</span></div>
+            </div>
+            <div class="project-info">
+              <span class="project-num mono">02</span>
               <h3>Another game</h3>
+              <dl class="project-meta">
+                <div><dt class="mono">Year</dt><dd>2024</dd></div>
+                <div><dt class="mono">Role</dt><dd>Design &amp; code</dd></div>
+                <div><dt class="mono">Built with</dt><dd>Unity, C#</dd></div>
+              </dl>
               <p>A game jam entry, a prototype or anything you're proud of. Mention players or downloads if you have them.</p>
-              <ul class="tags"><li>Unity</li><li>C#</li></ul>
-              <div class="card-links">
-                <a href="#">Play</a>
+              <div class="project-links mono">
+                <a class="u" href="#">Play ↗</a>
               </div>
             </div>
           </article>
 
-          <article class="card" data-category="software">
-            <div class="thumb thumb-c">S1</div>
-            <div class="card-body">
+          <article class="project">
+            <div class="project-media">
+              <div class="media-inner media-placeholder"><span class="mono">Screenshot<br>images/project-03.jpg</span></div>
+            </div>
+            <div class="project-info">
+              <span class="project-num mono">03</span>
               <h3>Software project</h3>
+              <dl class="project-meta">
+                <div><dt class="mono">Year</dt><dd>2024</dd></div>
+                <div><dt class="mono">Role</dt><dd>Developer</dd></div>
+                <div><dt class="mono">Built with</dt><dd>Python</dd></div>
+              </dl>
               <p>An app, website, bot or tool. Say what problem it solves and who uses it.</p>
-              <ul class="tags"><li>Python</li></ul>
-              <div class="card-links">
-                <a href="#">Code</a>
-                <a href="#">Live</a>
+              <div class="project-links mono">
+                <a class="u" href="#">Code ↗</a>
+                <a class="u" href="#">Live ↗</a>
               </div>
             </div>
           </article>
 
-          <article class="card" data-category="software">
-            <div class="thumb thumb-d">S2</div>
-            <div class="card-body">
+          <article class="project">
+            <div class="project-media">
+              <div class="media-inner media-placeholder"><span class="mono">Screenshot<br>images/project-04.jpg</span></div>
+            </div>
+            <div class="project-info">
+              <span class="project-num mono">04</span>
               <h3>This website</h3>
-              <p>My portfolio, hand-coded in HTML, CSS and JavaScript, with dark and light modes.</p>
-              <ul class="tags"><li>HTML</li><li>CSS</li><li>JavaScript</li></ul>
-              <div class="card-links">
-                <a href="#">Code</a>
+              <dl class="project-meta">
+                <div><dt class="mono">Year</dt><dd>2026</dd></div>
+                <div><dt class="mono">Role</dt><dd>Design &amp; code</dd></div>
+                <div><dt class="mono">Built with</dt><dd>HTML, CSS, JS</dd></div>
+              </dl>
+              <p>My portfolio, built from scratch in HTML, CSS and JavaScript, with smooth scrolling and scroll-driven animation.</p>
+              <div class="project-links mono">
+                <a class="u" href="https://github.com/jacksonchangmurray-cmyk/Portfolio">Code ↗</a>
               </div>
             </div>
           </article>
         </div>
+
+        <div class="work-foot mono" aria-hidden="true">
+          <span class="work-count"><span class="work-current">01</span> / <span class="work-total">04</span></span>
+          <span class="work-bar"><span></span></span>
+          <span>Keep scrolling</span>
+        </div>
       </div>
     </section>
 
-    <!-- ===== SKILLS ===== -->
-    <section id="skills" class="section">
-      <div class="container">
-        <h2 class="section-title">Skills</h2>
-        <div class="skills-grid">
-          <!-- EDIT: add or remove skills -->
-          <div class="skill-group">
-            <h3>Languages</h3>
-            <ul class="tags"><li>Luau</li><li>Python</li><li>JavaScript</li><li>HTML &amp; CSS</li><li>C#</li></ul>
+    <!-- ===== 04 DEMOS ===== -->
+    <section id="demos" class="section demos">
+      <div class="section-head">
+        <p class="label mono" data-reveal>(04) Demos</p>
+        <h2 class="section-title">Demos<sup class="mono">(04)</sup></h2>
+        <p class="section-intro" data-reveal>Short clips of things in action. Click one to watch.</p>
+      </div>
+
+      <!--
+        EDIT: one <button class="demo"> per demo. Give each one a video in one of two ways:
+          data-video="videos/my-demo.mp4"   (a video file in a "videos" folder; it also previews on hover)
+          data-youtube="dQw4w9WgXcQ"        (the ID at the end of a YouTube link)
+        For a cover image, replace the <span class="media-inner media-placeholder">...</span> with:
+          <span class="media-inner"><img src="images/demo-cover.jpg" alt=""></span>
+      -->
+      <div class="demo-grid">
+        <button class="demo" type="button" data-cursor="Play">
+          <span class="demo-media">
+            <span class="demo-zoom"><span class="media-inner media-placeholder"><span class="mono">Gameplay clip<br>videos/demo-01.mp4</span></span></span>
+            <span class="demo-play" aria-hidden="true"></span>
+          </span>
+          <span class="demo-info"><span class="demo-title">Game demo</span><span class="demo-tag mono">Roblox · Gameplay</span></span>
+        </button>
+
+        <button class="demo" type="button" data-cursor="Play">
+          <span class="demo-media">
+            <span class="demo-zoom"><span class="media-inner media-placeholder"><span class="mono">App walkthrough<br>videos/demo-02.mp4</span></span></span>
+            <span class="demo-play" aria-hidden="true"></span>
+          </span>
+          <span class="demo-info"><span class="demo-title">Software walkthrough</span><span class="demo-tag mono">Python · Tool</span></span>
+        </button>
+
+        <button class="demo" type="button" data-cursor="Play">
+          <span class="demo-media">
+            <span class="demo-zoom"><span class="media-inner media-placeholder"><span class="mono">Experiment or simulation<br>videos/demo-03.mp4</span></span></span>
+            <span class="demo-play" aria-hidden="true"></span>
+          </span>
+          <span class="demo-info"><span class="demo-title">Research demo</span><span class="demo-tag mono">Simulation · Data</span></span>
+        </button>
+
+        <button class="demo" type="button" data-cursor="Play">
+          <span class="demo-media">
+            <span class="demo-zoom"><span class="media-inner media-placeholder"><span class="mono">Prototype<br>videos/demo-04.mp4</span></span></span>
+            <span class="demo-play" aria-hidden="true"></span>
+          </span>
+          <span class="demo-info"><span class="demo-title">Prototype</span><span class="demo-tag mono">Unity · Mechanic test</span></span>
+        </button>
+      </div>
+    </section>
+
+    <!-- ===== TOOLKIT (scrolling skills) ===== -->
+    <section class="toolkit" aria-label="Skills">
+      <!-- EDIT: add or remove skills. Keep an <i></i> after each one (it's the dot between them). -->
+      <div class="marquee">
+        <div class="marquee-track">
+          <span>Luau</span><i></i>
+          <span>Python</span><i></i>
+          <span>JavaScript</span><i></i>
+          <span>C#</span><i></i>
+          <span>Data analysis</span><i></i>
+        </div>
+      </div>
+      <div class="marquee marquee-outline">
+        <div class="marquee-track">
+          <span>Roblox Studio</span><i></i>
+          <span>Unity</span><i></i>
+          <span>Experiment design</span><i></i>
+          <span>Blender</span><i></i>
+          <span>Git &amp; GitHub</span><i></i>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== 05 RÉSUMÉ ===== -->
+    <section id="resume" class="section resume">
+      <div class="resume-grid">
+        <div class="resume-side">
+          <p class="label mono" data-reveal>(05) Résumé</p>
+          <h2 class="section-title">Résumé</h2>
+          <!-- EDIT: put your résumé in the site folder as resume.pdf -->
+          <div data-reveal>
+            <a class="btn" href="resume.pdf" download data-magnetic>Download PDF <span aria-hidden="true">↓</span></a>
           </div>
-          <div class="skill-group">
-            <h3>Game dev</h3>
-            <ul class="tags"><li>Roblox Studio</li><li>Unity</li><li>Game design</li><li>Level design</li></ul>
+        </div>
+
+        <div class="resume-main">
+          <div class="resume-group">
+            <h3 class="group-title mono" data-reveal>Experience</h3>
+            <ol class="rows">
+              <!-- EDIT: jobs, internships, lab positions -->
+              <li class="row">
+                <span class="row-year mono">2025 — Now</span>
+                <div class="row-body">
+                  <h4 class="placeholder">[Job, internship or lab position]</h4>
+                  <p class="row-org mono placeholder">[Organization]</p>
+                  <p>What you did, in one or two lines. Lead with results.</p>
+                </div>
+              </li>
+              <li class="row">
+                <span class="row-year mono">2022 — Now</span>
+                <div class="row-body">
+                  <h4>Independent game developer</h4>
+                  <p class="row-org mono">Self-directed</p>
+                  <p>Designing, scripting and publishing my own games.</p>
+                </div>
+              </li>
+            </ol>
           </div>
-          <div class="skill-group">
-            <h3>Tools</h3>
-            <ul class="tags"><li>Git &amp; GitHub</li><li>VS Code</li><li>Blender</li></ul>
+
+          <div class="resume-group">
+            <h3 class="group-title mono" data-reveal>Education</h3>
+            <ol class="rows">
+              <!-- EDIT: schools -->
+              <li class="row">
+                <span class="row-year mono">2023 — Now</span>
+                <div class="row-body">
+                  <h4 class="placeholder">[Your school]</h4>
+                  <p class="row-org mono placeholder">[Degree or program]</p>
+                  <p>Mention relevant classes, GPA, clubs or anything you're proud of.</p>
+                </div>
+              </li>
+            </ol>
+          </div>
+
+          <div class="resume-group">
+            <h3 class="group-title mono" data-reveal>Awards &amp; honors</h3>
+            <ol class="rows">
+              <!-- EDIT: awards, competitions, scholarships -->
+              <li class="row">
+                <span class="row-year mono">2024</span>
+                <div class="row-body">
+                  <h4>Award, competition or game jam</h4>
+                  <p>What you did and how it went.</p>
+                </div>
+              </li>
+            </ol>
+          </div>
+
+          <div class="resume-group">
+            <h3 class="group-title mono" data-reveal>Skills</h3>
+            <dl class="facts skills">
+              <!-- EDIT: skills -->
+              <div data-reveal><dt class="mono">Languages</dt><dd>Luau, Python, JavaScript, C#, HTML &amp; CSS</dd></div>
+              <div data-reveal><dt class="mono">Game dev</dt><dd>Roblox Studio, Unity, Blender, game design</dd></div>
+              <div data-reveal><dt class="mono">Research</dt><dd>Experiment design, data analysis, scientific writing</dd></div>
+              <div data-reveal><dt class="mono">Tools</dt><dd>Git &amp; GitHub, VS Code</dd></div>
+            </dl>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- ===== EXPERIENCE / EDUCATION ===== -->
-    <section id="experience" class="section">
-      <div class="container">
-        <h2 class="section-title">Experience &amp; education</h2>
-        <ol class="timeline">
-          <!-- EDIT: school, jobs, clubs, awards, competitions -->
-          <li>
-            <span class="when">2023 – now</span>
-            <h3 class="placeholder">[Your school]</h3>
-            <p>Student. Mention classes, GPA, clubs or anything relevant.</p>
-          </li>
-          <li>
-            <span class="when">2024</span>
-            <h3>Award, competition or game jam</h3>
-            <p>What you did and how it went.</p>
-          </li>
-          <li>
-            <span class="when">2022 – now</span>
-            <h3>Independent game developer</h3>
-            <p>Designing, scripting and publishing my own games.</p>
-          </li>
-        </ol>
+    <!-- ===== 06 CONTACT ===== -->
+    <section id="contact" class="contact">
+      <p class="label mono" data-reveal>(06) Contact</p>
+      <h2 class="contact-title">
+        <span class="line"><span class="line-inner">Let's</span></span>
+        <span class="line"><span class="line-inner"><em>talk.</em></span></span>
+      </h2>
+      <p class="contact-text" data-reveal>Have a project, a research opportunity or just want to say hi? Send me a message.</p>
+      <!-- EDIT: replace you@example.com (both places) with your email, and the # links with your profiles -->
+      <div data-reveal>
+        <a class="contact-email" href="mailto:you@example.com" data-magnetic>you@example.com <span class="arrow" aria-hidden="true">↗</span></a>
       </div>
-    </section>
-
-    <!-- ===== CONTACT ===== -->
-    <section id="contact" class="section contact">
-      <div class="container">
-        <h2 class="section-title">Let's talk</h2>
-        <p>Have a project, an opportunity or just want to say hi? Send me a message.</p>
-        <!-- EDIT: replace you@example.com with your email, and the # links with your profiles -->
-        <a class="btn btn-primary" href="mailto:you@example.com">you@example.com</a>
-        <ul class="socials">
-          <li><a href="#">GitHub</a></li>
-          <li><a href="#">LinkedIn</a></li>
-          <li><a href="#">Roblox</a></li>
-          <li><a href="#">YouTube</a></li>
-        </ul>
-      </div>
+      <ul class="socials mono" data-reveal>
+        <li><a class="u" href="#">GitHub</a></li>
+        <li><a class="u" href="#">LinkedIn</a></li>
+        <li><a class="u" href="#">Google Scholar</a></li>
+        <li><a class="u" href="#">Roblox</a></li>
+        <li><a class="u" href="#">YouTube</a></li>
+      </ul>
     </section>
 
   </main>
 
-  <footer class="footer">
-    <div class="container">© <span id="year"></span> Jackson Chang Murray</div>
+  <footer class="footer mono">
+    <span>© <span id="year"></span> Jackson Chang Murray</span>
+    <span>Built with HTML, CSS &amp; JavaScript</span>
+    <a class="u" href="#top">Back to top ↑</a>
   </footer>
 
-  <script src="script.js"></script>
+  <!-- Video player for demos -->
+  <dialog class="lightbox" aria-label="Demo video">
+    <button class="lightbox-close mono" type="button">Close ✕</button>
+    <div class="lightbox-frame"></div>
+  </dialog>
+
 </body>
 </html>
