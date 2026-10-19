@@ -194,17 +194,31 @@ function setupDemos() {
     dialog.showModal();
     lenis?.stop();
     if (motion) {
-      gsap.fromTo(dialog, { opacity: 0, scale: 0.96 }, { opacity: 1, scale: 1, duration: 0.7, ease: "expo.out" });
+      gsap.fromTo(dialog, { opacity: 0 }, { opacity: 1, duration: 0.4, ease: "power2.out" });
+      gsap.fromTo(frame, { opacity: 0, scale: 0.96 }, { opacity: 1, scale: 1, duration: 0.7, ease: "expo.out" });
     }
   }
 
-  dialog.addEventListener("close", () => {
+  // Stop the video and give scrolling back. Runs for every way of closing.
+  function cleanUp() {
     frame.replaceChildren();
     lenis?.start();
-  });
-  $(".lightbox-close").addEventListener("click", () => dialog.close());
+  }
+  function closeDemo() {
+    if (dialog.open) dialog.close();
+    cleanUp();
+  }
+
+  $(".lightbox-close").addEventListener("click", closeDemo);
+  // Anything that isn't the video itself closes the player
   dialog.addEventListener("click", (e) => {
-    if (e.target === dialog) dialog.close();
+    if (!frame.contains(e.target)) closeDemo();
+  });
+  // Esc closes it natively; "cancel" fires right away, "close" as a backup.
+  // The open check stops a late "close" from wiping a demo that was just reopened.
+  dialog.addEventListener("cancel", cleanUp);
+  dialog.addEventListener("close", () => {
+    if (!dialog.open) cleanUp();
   });
 }
 
@@ -302,6 +316,14 @@ function setupSmoothScroll() {
   lenis.on("scroll", ScrollTrigger.update);
   gsap.ticker.add((time) => lenis.raf(time * 1000));
   gsap.ticker.lagSmoothing(0);
+
+  // Safety net: if scrolling is paused but nothing is open, turn it back on
+  const unstick = () => {
+    if (lenis.isStopped && !$(".lightbox").open && $("#menu").hidden) lenis.start();
+  };
+  addEventListener("wheel", unstick, { passive: true });
+  addEventListener("touchstart", unstick, { passive: true });
+  addEventListener("keydown", unstick);
 
   // In-page links glide instead of jumping
   document.addEventListener("click", (e) => {
