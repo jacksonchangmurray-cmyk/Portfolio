@@ -50,7 +50,7 @@ export const FIELDS = {
 /* ---------- Tunnel ---------- */
 
 export function createTunnel({ scene, radiusAt, baseY, topY, small, onStats }) {
-  const nx = small ? 300 : 420;
+  const nx = small ? 320 : 480;
   const dx = (X1 - X0) / nx;
   const ny = Math.round((Y1 - Y0) / dx);
   const n = nx * ny;
@@ -67,7 +67,7 @@ export function createTunnel({ scene, radiusAt, baseY, topY, small, onStats }) {
     ux: new Float32Array(n), uy: new Float32Array(n), rho: new Float32Array(n).fill(1),
     solid: new Uint8Array(n), pendingSteps: 0, stepsPerSecond: 0, cd: 0, cl: 0, history: [],
   };
-  const uIn = () => 0.05 + 0.07 * Math.min(1, Math.max(0, (state.speed - 10) / 110));
+  const uIn = () => 0.06 + 0.06 * Math.min(1, Math.max(0, (state.speed - 10) / 110));
 
   /* Test section frame, floor grid, inlet arrows */
   const lineMaterial = (opacity) => new THREE.LineBasicMaterial({ color: 0xecebe6, transparent: true, opacity, depthWrite: false });
@@ -98,27 +98,84 @@ export function createTunnel({ scene, radiusAt, baseY, topY, small, onStats }) {
   sting.castShadow = strut.castShadow = true;
   group.add(strut, strutFoot);
 
-  /* Slice of the flow through the rocket's centre */
-  const pixels = new Uint8Array(n * 4);
-  const fieldTexture = new THREE.DataTexture(pixels, nx, ny, THREE.RGBAFormat);
-  fieldTexture.colorSpace = THREE.SRGBColorSpace;
-  fieldTexture.magFilter = THREE.LinearFilter;
-  fieldTexture.minFilter = THREE.LinearFilter;
-  const slice = new THREE.Mesh(
-    new THREE.PlaneGeometry(X1 - X0, Y1 - Y0),
-    new THREE.MeshBasicMaterial({ map: fieldTexture, transparent: true, side: THREE.DoubleSide, depthWrite: false, toneMapped: false }),
-  );
+  /* Slice of the flow through the rocket's centre.
+     The solver's grid is coarse next to the screen, so the slice is drawn on the GPU:
+     the raw values are smoothly (bicubic) interpolated first and coloured after, and each new
+     result fades in from the last one. Sharp at any zoom, and no jumps between updates. */
+  const fieldPixels = [new Uint8Array(n * 4), new Uint8Array(n * 4)]; // R = value (0–1), G = air (vs model)
+  const fieldTextures = fieldPixels.map((data) => {
+    const texture = new THREE.DataTexture(data, nx, ny, THREE.RGBAFormat);
+    texture.magFilter = texture.minFilter = THREE.LinearFilter;
+    texture.needsUpdate = true;
+    return texture;
+  });
+  let newest = 1, fieldTime = 0, fieldInterval = 0.03;
+
+  // Colour maps as small linear-light lookup textures
+  const lutCache = {};
+  function lutTexture(name) {
+    if (lutCache[name]) return lutCache[name];
+    const map = COLORMAPS[name], data = new Uint16Array(256 * 4);
+    for (let i = 0; i < 256; i++) {
+      for (let k = 0; k < 3; k++) data[i * 4 + k] = THREE.DataUtils.toHalfFloat((map[i * 3 + k] / 255) ** 2.2);
+      data[i * 4 + 3] = THREE.DataUtils.toHalfFloat(1);
+    }
+    const texture = new THREE.DataTexture(data, 256, 1, THREE.RGBAFormat, THREE.HalfFloatType);
+    texture.magFilter = texture.minFilter = THREE.LinearFilter;
+    texture.needsUpdate = true;
+    return (lutCache[name] = texture);
+  }
+
+  const sliceMaterial = new THREE.ShaderMaterial({
+    uniforms: {
+      uPrev: { value: fieldTextures[0] }, uNext: { value: fieldTextures[1] }, uMix: { value: 1 },
+      uLut: { value: lutTexture("turbo") }, uSize: { value: new THREE.Vector2(nx, ny) },
+      uLight: { value: 1 }, uAlpha: { value: 0.9 }, uOpacity: { value: 1 },
+    },
+    vertexShader: /* glsl */ `
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }`,
+    fragmentShader: /* glsl */ `
+      uniform sampler2D uPrev, uNext, uLut;
+      uniform vec2 uSize;
+      uniform float uMix, uLight, uAlpha, uOpacity;
+      varying vec2 vUv;
+      // Smooth bicubic (B-spline) sampling from four bilinear taps
+      vec4 bicubic(sampler2D tex, vec2 uv) {
+        vec2 texel = 1.0 / uSize;
+        vec2 st = uv * uSize - 0.5;
+        vec2 i = floor(st), f = st - i;
+        vec2 w0 = (1.0 - f) * (1.0 - f) * (1.0 - f) / 6.0;
+        vec2 w1 = (3.0 * f * f * f - 6.0 * f * f + 4.0) / 6.0;
+        vec2 w2 = (-3.0 * f * f * f + 3.0 * f * f + 3.0 * f + 1.0) / 6.0;
+        vec2 w3 = f * f * f / 6.0;
+        vec2 g0 = w0 + w1, g1 = w2 + w3;
+        vec2 h0 = (i - 0.5 + w1 / g0) * texel, h1 = (i + 1.5 + w3 / g1) * texel;
+        return g0.y * (g0.x * texture2D(tex, vec2(h0.x, h0.y)) + g1.x * texture2D(tex, vec2(h1.x, h0.y)))
+             + g1.y * (g0.x * texture2D(tex, vec2(h0.x, h1.y)) + g1.x * texture2D(tex, vec2(h1.x, h1.y)));
+      }
+      void main() {
+        vec4 field = mix(bicubic(uPrev, vUv), bicubic(uNext, vUv), uMix);
+        float air = smoothstep(0.45, 0.8, field.g);
+        float t = clamp(field.r, 0.0, 1.0) * (255.0 / 256.0) + 0.5 / 256.0;
+        vec3 color = texture2D(uLut, vec2(t, 0.5)).rgb * uLight;
+        // Soft edges instead of a hard rectangle
+        float edges = smoothstep(0.0, 0.05, vUv.x) * smoothstep(1.0, 0.92, vUv.x)
+                    * smoothstep(0.0, 0.1, vUv.y) * smoothstep(1.0, 0.9, vUv.y);
+        gl_FragColor = vec4(color, uAlpha * air * edges * uOpacity);
+      }`,
+    transparent: true,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+    toneMapped: false,
+  });
+  const slice = new THREE.Mesh(new THREE.PlaneGeometry(X1 - X0, Y1 - Y0), sliceMaterial);
   slice.position.set((X0 + X1) / 2, 0, 0);
   slice.renderOrder = 1;
   group.add(slice);
-
-  // Soft edges so the slice fades out instead of ending in a hard rectangle
-  const edgeFade = new Float32Array(n);
-  for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
-    const fx = Math.min(1, i / (nx * 0.05), (nx - 1 - i) / (nx * 0.08));
-    const fy = Math.min(1, j / (ny * 0.1), (ny - 1 - j) / (ny * 0.1));
-    edgeFade[j * nx + i] = Math.max(0, fx) * Math.max(0, fy);
-  }
 
   /* Smoke streaklines: a rake of nozzles upstream puffs a continuous thread each */
   const SEEDS = small ? 34 : 52, MAX_PER_SEED = small ? 220 : 300, EMIT_EVERY = 2.2; // cells of travel
@@ -192,7 +249,16 @@ export function createTunnel({ scene, radiusAt, baseY, topY, small, onStats }) {
     worker.onmessage = ({ data }) => {
       if (data.type !== "frame") return;
       state.ux = data.ux; state.uy = data.uy; state.rho = data.rho;
+      // Bank the solver's steps; the smoke spends them evenly frame by frame so it glides
+      // instead of jumping whenever a batch arrives
+      const now = performance.now();
+      if (state.lastBatch) {
+        const rate = data.steps / Math.max(0.005, (now - state.lastBatch) / 1000);
+        state.stepRate = state.stepRate ? state.stepRate + (rate - state.stepRate) * 0.1 : rate;
+      }
+      state.lastBatch = now;
       state.pendingSteps += data.steps;
+      state.planDirty ||= state.planSolid !== state.solid;
       // Force coefficients per unit span, referenced to the rocket's length (like an airfoil's chord)
       const q = 0.5 * uIn() ** 2 * ((topY - baseY) / dx);
       const blend = 0.06;
@@ -216,15 +282,12 @@ export function createTunnel({ scene, radiusAt, baseY, topY, small, onStats }) {
     if (i < 0 || j < 0 || i >= nx - 1 || j >= ny - 1) { out[0] = uIn(); out[1] = 0; return; }
     const tx = fx - i, ty = fy - j, c = j * nx + i;
     const { ux, uy, solid } = state;
-    const corners = [c, c + 1, c + nx, c + nx + 1];
-    const weights = [(1 - tx) * (1 - ty), tx * (1 - ty), (1 - tx) * ty, tx * ty];
-    let u = 0, v = 0, total = 0;
-    for (let k = 0; k < 4; k++) {
-      if (solid[corners[k]]) continue;
-      u += ux[corners[k]] * weights[k];
-      v += uy[corners[k]] * weights[k];
-      total += weights[k];
-    }
+    // Written out by hand: this runs tens of thousands of times a frame
+    let u = 0, v = 0, total = 0, w;
+    if (!solid[c])          { w = (1 - tx) * (1 - ty); u += ux[c] * w;          v += uy[c] * w;          total += w; }
+    if (!solid[c + 1])      { w = tx * (1 - ty);       u += ux[c + 1] * w;      v += uy[c + 1] * w;      total += w; }
+    if (!solid[c + nx])     { w = (1 - tx) * ty;       u += ux[c + nx] * w;     v += uy[c + nx] * w;     total += w; }
+    if (!solid[c + nx + 1]) { w = tx * ty;             u += ux[c + nx + 1] * w; v += uy[c + nx + 1] * w; total += w; }
     out[0] = total > 1e-6 ? u / total : 0;
     out[1] = total > 1e-6 ? v / total : 0;
   }
@@ -239,22 +302,47 @@ export function createTunnel({ scene, radiusAt, baseY, topY, small, onStats }) {
     return (curl * diameterCells) / u0;
   }
 
-  function paintSlice() {
-    const field = FIELDS[state.field];
-    const map = COLORMAPS[field.map];
-    const [lo, hi] = field.range;
-    const scale = 255 / (hi - lo);
-    const solid = state.solid;
-    // With smoke on, the slice is muted so the white threads stand out against it
-    const light = state.layers.smoke ? 0.5 : 1, alpha = state.layers.smoke ? 200 : 230;
+  // For each model cell, the nearest air cell. Model cells borrow that value so the smooth
+  // interpolation near the outline doesn't drag in a dark halo of zeros.
+  function nearestAir(solid) {
+    const near = new Int32Array(n).fill(-1), queue = new Int32Array(n);
+    let head = 0, tail = 0;
+    for (let c = 0; c < n; c++) if (!solid[c]) { near[c] = c; queue[tail++] = c; }
+    while (head < tail) {
+      const c = queue[head++], i = c % nx;
+      for (const nb of [i > 0 ? c - 1 : -1, i < nx - 1 ? c + 1 : -1, c - nx, c + nx]) {
+        if (nb < 0 || nb >= n || near[nb] >= 0) continue;
+        near[nb] = near[c];
+        queue[tail++] = nb;
+      }
+    }
+    return near;
+  }
+
+  function paintSlice(both = false) {
+    if (state.nearSolid !== state.solid) { state.near = nearestAir(state.solid); state.nearSolid = state.solid; }
+    const [lo, hi] = FIELDS[state.field].range;
+    const scale = 255 / (hi - lo), solid = state.solid, near = state.near;
+    const target = 1 - newest, data = fieldPixels[target];
     for (let c = 0; c < n; c++) {
       const o = c * 4;
-      if (solid[c]) { pixels[o + 3] = 0; continue; }
-      const k = Math.max(0, Math.min(255, ((fieldValue(c) - lo) * scale) | 0)) * 3;
-      pixels[o] = map[k] * light; pixels[o + 1] = map[k + 1] * light; pixels[o + 2] = map[k + 2] * light;
-      pixels[o + 3] = alpha * edgeFade[c];
+      const value = fieldValue(solid[c] ? near[c] : c);
+      data[o] = Math.max(0, Math.min(255, (value - lo) * scale));
+      data[o + 1] = solid[c] ? 0 : 255;
     }
-    fieldTexture.needsUpdate = true;
+    if (both) fieldPixels[newest].set(data);
+    fieldTextures[0].needsUpdate = fieldTextures[1].needsUpdate = true;
+    // The new result becomes "next"; the shader fades into it from the previous one
+    sliceMaterial.uniforms.uPrev.value = fieldTextures[newest];
+    sliceMaterial.uniforms.uNext.value = fieldTextures[target];
+    newest = target;
+    const now = performance.now() / 1000;
+    if (fieldTime) fieldInterval += (Math.min(0.2, now - fieldTime) - fieldInterval) * 0.2;
+    fieldTime = now;
+    // With smoke on, the slice is muted so the white threads stand out against it
+    sliceMaterial.uniforms.uLight.value = state.layers.smoke ? 0.5 : 1;
+    sliceMaterial.uniforms.uAlpha.value = state.layers.smoke ? 0.8 : 0.9;
+    sliceMaterial.uniforms.uLut.value = lutTexture(FIELDS[state.field].map);
   }
 
   /* Smoke */
@@ -284,8 +372,9 @@ export function createTunnel({ scene, radiusAt, baseY, topY, small, onStats }) {
             ys[p] += mid[1] * h * dx;
             remaining -= h;
           }
+          // Drop puffs that hit the model or drift into the tunnel's top/bottom edges
           const c = cellOf(xs[p], ys[p]);
-          if (c < 0 || state.solid[c] || xs[p] > X1 - 2 * dx) { xs.splice(p, 1); ys.splice(p, 1); }
+          if (c < 0 || state.solid[c] || xs[p] > X1 - 2 * dx || ys[p] < Y0 + 0.06 || ys[p] > Y1 - 0.06) { xs.splice(p, 1); ys.splice(p, 1); }
         }
         if (xs.length > MAX_PER_SEED) { xs.splice(0, xs.length - MAX_PER_SEED); ys.splice(0, ys.length - MAX_PER_SEED); }
       }
@@ -297,11 +386,11 @@ export function createTunnel({ scene, radiusAt, baseY, topY, small, onStats }) {
         const o = segment * 6;
         smokePositions[o] = xs[p]; smokePositions[o + 1] = ys[p]; smokePositions[o + 2] = 0.004;
         smokePositions[o + 3] = xs[p + 1]; smokePositions[o + 4] = ys[p + 1]; smokePositions[o + 5] = 0.004;
-        // Fade near the inlet and outlet, and where the wake stretches a thread thin,
-        // so torn smoke dissolves instead of breaking into confetti.
-        // Slightly brighter than white so the threads catch the glow pass.
+        // Fade near the edges, and where the wake stretches a thread thin, so torn smoke
+        // dissolves instead of breaking into confetti. Kept below the glow threshold: crisp lines.
         const stretch = Math.max(0, 1 - (gap - EMIT_EVERY * dx * 1.6) / 0.025);
-        const fade = Math.min(1, (xs[p] - X0) / 0.15, (X1 - xs[p]) / 0.5, stretch) * 1.25;
+        const fade = Math.min(1, (xs[p] - X0) / 0.15, (X1 - xs[p]) / 0.5, (ys[p] - Y0 - 0.06) / 0.1, (Y1 - 0.06 - ys[p]) / 0.1, stretch) * 0.9;
+        if (fade <= 0) continue;
         for (let k = 0; k < 6; k += 3) { smokeColors[o + k] = fade * 0.95; smokeColors[o + k + 1] = fade * 0.97; smokeColors[o + k + 2] = fade; }
         segment++;
       }
@@ -328,52 +417,78 @@ export function createTunnel({ scene, radiusAt, baseY, topY, small, onStats }) {
     }
   }
 
-  /* Surface pressure: read the pressure just outside the outline in the slice */
-  function pressureAt(s, across) {
+  /* Surface pressure: read the pressure just outside the outline in the slice.
+     Which cells each vertex reads only changes with pitch and roll, so that's worked out
+     once per attitude ("plan"), and each repaint just looks them up. */
+  function fluidCellBeside(s, across) {
     const pitch = (state.pitch * Math.PI) / 180;
     const ax = -Math.cos(pitch), ay = Math.sin(pitch), px = Math.sin(pitch), py = Math.cos(pitch);
     const dir = Math.sign(across) || 1;
     for (let k = 0; k < 8; k++) {
       const a = across + dir * k * dx;
       const c = cellOf(s * ax + a * px, s * ay + a * py);
-      if (c >= 0 && !state.solid[c]) {
-        const u0 = uIn();
-        return ((state.rho[c] - 1) / 3) / (0.5 * u0 * u0);
-      }
+      if (c >= 0 && !state.solid[c]) return c;
     }
-    return 0;
+    return -1;
   }
 
-  function paintSurface(parts) {
+  let plan = null;
+  const OFFSETS = [-1.5 * dx, 0, 1.5 * dx]; // a few samples along the body smooth out the grid's stair steps
+  function buildPlan(parts) {
     const roll = (state.roll * Math.PI) / 180;
-    const map = COLORMAPS.turbo;
-    const [lo, hi] = FIELDS.pressure.range;
-    for (const part of parts) {
-      const geometry = part.mesh.geometry;
-      const pos = geometry.attributes.position, color = geometry.attributes.color;
+    plan = parts.map((part) => {
+      const pos = part.mesh.geometry.attributes.position;
+      const cells = new Int32Array(pos.count * 6), facing = new Float32Array(pos.count);
       for (let v = 0; v < pos.count; v++) {
         const x = pos.getX(v), s = pos.getY(v), z = pos.getZ(v);
-        const r = Math.hypot(x, z), angle = Math.atan2(z, x);
-        const toward = Math.cos(angle - roll); // +1 = facing the slice's "up" side
+        const r = Math.hypot(x, z);
+        const toward = Math.cos(Math.atan2(z, x) - roll); // +1 = facing the slice's "up" side
         const R = Math.max(radiusAt(Math.min(topY, Math.max(baseY, s))), 0.004);
-        const reach = r > R + 0.0005 ? R + (r - R) * Math.abs(toward) : R;
-        // Average a few samples along the body to smooth out the grid's stair steps
-        let up = 0, down = 0;
-        for (const ds of [-1.5 * dx, 0, 1.5 * dx]) {
-          up += pressureAt(s + ds, reach + dx) / 3;
-          down += pressureAt(s + ds, -(reach + dx)) / 3;
+        const reach = (r > R + 0.0005 ? R + (r - R) * Math.abs(toward) : R) + dx;
+        for (let k = 0; k < 3; k++) {
+          cells[v * 6 + k] = fluidCellBeside(s + OFFSETS[k], reach);
+          cells[v * 6 + 3 + k] = fluidCellBeside(s + OFFSETS[k], -reach);
         }
-        const cp = up * (1 + toward) * 0.5 + down * (1 - toward) * 0.5;
-        const k = Math.max(0, Math.min(255, (((cp - lo) / (hi - lo)) * 255) | 0)) * 3;
-        color.setXYZ(v, (map[k] / 255) ** 2.2, (map[k + 1] / 255) ** 2.2, (map[k + 2] / 255) ** 2.2);
+        facing[v] = (1 + toward) * 0.5;
       }
+      return { cells, facing, smooth: new Float32Array(pos.count), fresh: true };
+    });
+    state.planSolid = state.solid;
+    state.planDirty = false;
+  }
+
+  // Repainted every frame, easing each point toward its new pressure so the colours flow
+  // instead of jumping each time the solver reports
+  const turboLinear = Float32Array.from(COLORMAPS.turbo, (v) => (v / 255) ** 2.2);
+  function paintSurface(parts, dt = 1) {
+    if (!plan || state.planDirty || plan.length !== parts.length) buildPlan(parts);
+    const [lo, hi] = FIELDS.pressure.range;
+    const rho = state.rho, u0 = uIn(), toCp = 1 / (3 * 0.5 * u0 * u0);
+    const ease = Math.min(1, dt * 7);
+    parts.forEach((part, index) => {
+      const entry = plan[index];
+      const { cells, facing, smooth } = entry;
+      const color = part.mesh.geometry.attributes.color, out = color.array;
+      for (let v = 0; v < facing.length; v++) {
+        let up = 0, nUp = 0, down = 0, nDown = 0;
+        for (let k = 0; k < 3; k++) {
+          const a = cells[v * 6 + k], b = cells[v * 6 + 3 + k];
+          if (a >= 0) { up += rho[a] - 1; nUp++; }
+          if (b >= 0) { down += rho[b] - 1; nDown++; }
+        }
+        const cp = ((nUp ? up / nUp : 0) * facing[v] + (nDown ? down / nDown : 0) * (1 - facing[v])) * toCp;
+        smooth[v] = entry.fresh ? cp : smooth[v] + (cp - smooth[v]) * ease;
+        const k = Math.max(0, Math.min(255, (((smooth[v] - lo) / (hi - lo)) * 255) | 0)) * 3;
+        out[v * 3] = turboLinear[k]; out[v * 3 + 1] = turboLinear[k + 1]; out[v * 3 + 2] = turboLinear[k + 2];
+      }
+      entry.fresh = false;
       color.needsUpdate = true;
-    }
+    });
   }
 
   /* Per frame */
   const stingEnd = new THREE.Vector3();
-  let statTimer = 0, surfaceTimer = 0, stepsWindow = 0;
+  let statTimer = 0, stepsWindow = 0;
   function update(dt, rocketGroup, parts) {
     if (!state.active && !group.visible) return;
 
@@ -389,8 +504,15 @@ export function createTunnel({ scene, radiusAt, baseY, topY, small, onStats }) {
     strutFoot.position.set(stingEnd.x, FLOOR_Y + 0.006, stingEnd.z);
 
     if (!state.active) return;
-    const steps = state.paused ? 0 : state.pendingSteps;
-    state.pendingSteps = 0;
+    // Spend banked solver steps at the solver's own pace, a little every frame (smooth),
+    // catching up faster if a backlog builds
+    let steps = 0;
+    if (state.paused) state.pendingSteps = 0;
+    else if (state.stepRate) {
+      const want = state.stepRate * dt;
+      steps = Math.min(state.pendingSteps, state.pendingSteps > state.stepRate * 0.25 ? want * 1.6 : want);
+      state.pendingSteps -= steps;
+    }
     stepsWindow += steps;
     if (state.layers.smoke) advanceSmoke(steps);
 
@@ -401,11 +523,9 @@ export function createTunnel({ scene, radiusAt, baseY, topY, small, onStats }) {
       statTimer = 0;
       onStats?.(stats());
     }
-    surfaceTimer += dt;
-    if (state.layers.surface && surfaceTimer > 0.25) {
-      surfaceTimer = 0;
-      paintSurface(parts);
-    }
+    if (state.layers.surface && state.stepsTotal) paintSurface(parts, dt);
+    // Fade the slice from the previous solver result into the newest one
+    sliceMaterial.uniforms.uMix.value = Math.min(1, (performance.now() / 1000 - fieldTime) / fieldInterval);
   }
 
   function stats() {
@@ -435,7 +555,7 @@ export function createTunnel({ scene, radiusAt, baseY, topY, small, onStats }) {
     setVisible(on) { group.visible = on; sting.visible = on; },
     setOpacity(alpha) {
       box.material.opacity = 0.16 * alpha;
-      slice.material.opacity = alpha;
+      sliceMaterial.uniforms.uOpacity.value = alpha;
       smoke.material.opacity = alpha;
       arrowMaterial.opacity = 0.8 * alpha;
     },
@@ -451,13 +571,13 @@ export function createTunnel({ scene, radiusAt, baseY, topY, small, onStats }) {
     },
     setField(name) {
       state.field = name;
-      if (state.layers.slice) paintSlice();
+      if (state.layers.slice && state.stepsTotal) paintSlice(true);
     },
     setLayer(name, on) {
       state.layers[name] = on;
       if (name === "slice") slice.visible = on;
       if (name === "smoke") smoke.visible = on;
-      if (state.layers.slice) paintSlice();
+      if (state.layers.slice && state.stepsTotal) paintSlice(true);
     },
     setPaused(on) {
       state.paused = on;

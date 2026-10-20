@@ -1,6 +1,8 @@
 /* ============================================================
-   Paint schemes. Textures are drawn in code, in millimetres,
-   so panel lines and markings land on the real part joints.
+   Surface finish for the 3D-printed rocket. Drawn in code, in
+   millimetres, so joints and markings land on the real part
+   joints from the STEP file: dark filament with print layer
+   lines, an orange parachute compartment, and vinyl decals.
    ============================================================ */
 
 import * as THREE from "three";
@@ -10,124 +12,192 @@ const CIRCUMFERENCE_MM = Math.PI * 100;
 // Where the parts meet (mm from the base), from the STEP file
 const JOINTS = [100, 112, 247.5, 497.5, 747.5, 805];
 const NOSE_START = 805;
+const BAY_TOP = 112; // top of the avionics bay
+const LAYER_MM = 0.5; // print layer lines (slightly exaggerated so they read on screen)
 
-export const LIVERIES = [
-  {
-    id: "signal", name: "Signal",
-    paint: "#f1efe9", nose: "#ff5b1f", band: "#1c1c1a", roll: "#1c1c1a", letters: "#1c1c1a", accent: "#ff5b1f",
-    finCan: "#1c1c1a", fin: "carbon", gloss: 0.55,
-  },
-  {
-    id: "stealth", name: "Stealth",
-    paint: "#1a1a19", nose: "#121212", band: "#ff5b1f", roll: "#2c2c2a", letters: "#ff5b1f", accent: "#ff5b1f",
-    finCan: "#111110", fin: "carbon", gloss: 0.35,
-  },
-  {
-    id: "classic", name: "Classic",
-    paint: "#f4f2ec", nose: "#c8261d", band: "#f4f2ec", roll: "#151515", letters: "#151515", accent: "#c8261d",
-    finCan: "#f4f2ec", fin: "#151515", gloss: 0.6, rollTwice: true,
-  },
-];
+// Filament colours per part, decal colours on top
+const PAINT = {
+  body: "#1d1e21", nose: "#18191c", bay: "#131416", roll: "#2b2c30",
+  band: "#ff5b1f", accent: "#ff5b1f", letters: "#d6d4ce", stencil: "#8d8b85",
+};
 
-// Big canvas mapped around the body (u) and up its height (v)
-function bodyTexture(livery) {
-  const width = 1024, height = 2048;
+/* ---------- Drawing helpers ---------- */
+
+function sheet(width, height) {
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
   const g = canvas.getContext("2d");
   // Draw in millimetres: x around the body, y down from the nose tip
   g.scale(width / CIRCUMFERENCE_MM, height / HEIGHT_MM);
-  const C = CIRCUMFERENCE_MM;
-  const yOf = (zFromBase) => HEIGHT_MM - zFromBase;
+  return { canvas, g };
+}
+const yOf = (zFromBase) => HEIGHT_MM - zFromBase;
+const C = CIRCUMFERENCE_MM;
 
-  g.fillStyle = livery.paint;
+/* ---------- Colour ---------- */
+
+function colorSheet(width, height) {
+  const { canvas, g } = sheet(width, height);
+
+  g.fillStyle = PAINT.body;
   g.fillRect(0, 0, C, HEIGHT_MM);
 
-  // Nose cone and parachute band
-  g.fillStyle = livery.nose;
+  // Nose cone
+  g.fillStyle = PAINT.nose;
   g.fillRect(0, 0, C, yOf(NOSE_START));
-  g.fillStyle = livery.band;
+
+  // Parachute compartment, printed in orange
+  g.fillStyle = PAINT.band;
   g.fillRect(0, yOf(NOSE_START), C, NOSE_START - 747.5);
-  // Fin can
-  g.fillStyle = livery.finCan;
-  g.fillRect(0, yOf(112), C, 112);
 
-  // Roll pattern: alternating quarters, so you can see the rocket spin in video
-  const roll = (from, to) => {
-    const mid = (from + to) / 2;
-    g.fillStyle = livery.roll;
-    for (let q = 0; q < 4; q++) {
-      const lower = q % 2 === 0;
-      g.fillRect((q * C) / 4, yOf(lower ? mid : to), C / 4, lower ? mid - from : to - mid);
-    }
-  };
-  roll(560, 700);
-  if (livery.rollTwice) roll(130, 230);
+  // Avionics bay
+  g.fillStyle = PAINT.bay;
+  g.fillRect(0, yOf(BAY_TOP), C, BAY_TOP);
 
-  // Name running down the body on opposite sides
-  g.fillStyle = livery.letters;
-  g.font = "600 21px 'Inter Tight', 'Segoe UI', sans-serif";
+  // Tone-on-tone roll pattern decal: alternating quarters, so spin shows up on video
+  const mid = 630;
+  g.fillStyle = PAINT.roll;
+  for (let q = 0; q < 4; q++) {
+    const lower = q % 2 === 0;
+    g.fillRect((q * C) / 4, yOf(lower ? mid : 700), C / 4, lower ? mid - 560 : 700 - mid);
+  }
+
+  // Name down the body on two opposite sides
   g.textBaseline = "middle";
   for (const x of [C * 0.25, C * 0.75]) {
     g.save();
-    g.translate(x, yOf(470));
+    g.translate(x, yOf(478));
     g.rotate(Math.PI / 2);
+    g.font = "600 20px 'Inter Tight', 'Segoe UI', sans-serif";
+    g.fillStyle = PAINT.letters;
     g.fillText("MACROPLASTIC", 0, 0);
-    g.fillStyle = livery.accent;
+    g.fillStyle = PAINT.accent;
     g.fillText("V1", g.measureText("MACROPLASTIC ").width, 0);
     g.restore();
-    g.fillStyle = livery.letters;
   }
 
-  // Small markings near the base
-  g.font = "500 7px 'JetBrains Mono', Consolas, monospace";
-  g.fillStyle = livery.finCan === livery.paint ? livery.letters : livery.paint;
-  g.globalAlpha = 0.75;
-  g.fillText("JCM · 01", C * 0.5 - 12, yOf(60));
-  g.globalAlpha = 1;
+  // Small stencils
+  g.font = "500 5.5px 'JetBrains Mono', Consolas, monospace";
+  g.fillStyle = PAINT.stencil;
+  const stencil = (text, u, z) => g.fillText(text, u * C - g.measureText(text).width / 2, yOf(z));
+  stencil("AVIONICS BAY", 0.5, 60);
+  stencil("JCM · 01", 0.5, 46);
+  g.fillStyle = "#1a1a1a";
+  stencil("RECOVERY", 0.25, 776);
+  stencil("RECOVERY", 0.75, 776);
 
-  // Thin accent stripe and panel lines at every joint
-  g.fillStyle = livery.accent;
-  g.fillRect(0, yOf(258), C, 1.6);
-  g.fillStyle = "rgba(0, 0, 0, 0.55)";
-  for (const z of JOINTS) g.fillRect(0, yOf(z) - 0.35, C, 0.7);
-  g.fillStyle = "rgba(255, 255, 255, 0.18)";
-  for (const z of JOINTS) g.fillRect(0, yOf(z) + 0.35, C, 0.5);
+  // Ruler down the back: a tick every 10 mm, numbered every 100 mm
+  g.fillStyle = PAINT.stencil;
+  const rulerU = 0.5 * C;
+  for (let z = 120; z <= 740; z += 10) {
+    const long = z % 100 === 0, half = z % 50 === 0;
+    g.fillRect(rulerU - (long ? 4 : half ? 2.6 : 1.6), yOf(z) - 0.15, long ? 8 : half ? 5.2 : 3.2, 0.3);
+    if (long) g.fillText(String(z), rulerU + 5, yOf(z));
+  }
 
+  // Thin accent pinstripes
+  g.fillStyle = PAINT.accent;
+  g.fillRect(0, yOf(BAY_TOP + 6), C, 0.9);
+  g.fillRect(0, yOf(258), C, 0.9);
+
+  // Joints between printed parts: dark gap with a lit lip
+  for (const z of JOINTS) {
+    g.fillStyle = "rgba(0, 0, 0, 0.75)";
+    g.fillRect(0, yOf(z) - 0.45, C, 0.9);
+    g.fillStyle = "rgba(255, 255, 255, 0.1)";
+    g.fillRect(0, yOf(z) + 0.45, C, 0.5);
+  }
+
+  // Faint scuffing around the fins and the base
+  const grime = g.createLinearGradient(0, yOf(0), 0, yOf(140));
+  grime.addColorStop(0, "rgba(0, 0, 0, 0.35)");
+  grime.addColorStop(1, "rgba(0, 0, 0, 0)");
+  g.fillStyle = grime;
+  g.fillRect(0, yOf(140), C, 140);
+
+  return canvas;
+}
+
+/* ---------- Surface relief (bump) and shine (roughness) ---------- */
+
+// Height map: print layer lines, the gaps at the joints, and a little filament noise
+function reliefSheet(width, height) {
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const g = canvas.getContext("2d");
+  const img = g.createImageData(width, height);
+  const data = img.data;
+  const rowsPerLayer = (height / HEIGHT_MM) * LAYER_MM;
+  for (let y = 0; y < height; y++) {
+    // Each layer is a rounded bead: bright in the middle, dipping where layers meet
+    const layer = Math.cos(((y / rowsPerLayer) % 1) * Math.PI * 2) * 0.5 + 0.5;
+    // Layers wander slightly, as real prints do
+    const wobble = Math.sin(y * 0.013) * 6;
+    for (let x = 0; x < width; x++) {
+      const v = 112 + layer * 60 + wobble + (Math.random() - 0.5) * 10;
+      const i = (y * width + x) * 4;
+      data[i] = data[i + 1] = data[i + 2] = v;
+      data[i + 3] = 255;
+    }
+  }
+  g.putImageData(img, 0, 0);
+  g.scale(width / CIRCUMFERENCE_MM, height / HEIGHT_MM);
+  g.fillStyle = "rgb(10, 10, 10)";
+  for (const z of JOINTS) g.fillRect(0, yOf(z) - 0.5, C, 1);
+  return canvas;
+}
+
+// Small tile of layer lines for the fins (they're printed as part of the avionics bay)
+function layerTile() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 4;
+  canvas.height = 8;
+  const g = canvas.getContext("2d");
+  for (let y = 0; y < 8; y++) {
+    const v = 112 + (Math.cos((y / 8) * Math.PI * 2) * 0.5 + 0.5) * 60;
+    g.fillStyle = `rgb(${v}, ${v}, ${v})`;
+    g.fillRect(0, y, 4, 1);
+  }
   const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  texture.anisotropy = 8;
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
   return texture;
 }
 
-// Fine bumpy "orange peel" paint finish, tiled
-function paintBump() {
-  const size = 256;
-  const canvas = document.createElement("canvas");
-  canvas.width = canvas.height = size;
-  const g = canvas.getContext("2d");
-  const img = g.createImageData(size, size);
-  for (let i = 0; i < size * size; i++) {
-    const v = 128 + (Math.random() - 0.5) * 34;
-    img.data.set([v, v, v, 255], i * 4);
+function shineSheet(width, height) {
+  const { canvas, g } = sheet(width, height);
+  // Roughness: matte filament, a touch smoother on the nose and band, scuffed near the base
+  g.fillStyle = "rgb(160, 160, 160)";
+  g.fillRect(0, 0, C, HEIGHT_MM);
+  g.fillStyle = "rgb(135, 135, 135)";
+  g.fillRect(0, 0, C, yOf(747.5));
+  const scuff = g.createLinearGradient(0, yOf(0), 0, yOf(160));
+  scuff.addColorStop(0, "rgb(205, 205, 205)");
+  scuff.addColorStop(1, "rgb(160, 160, 160)");
+  g.fillStyle = scuff;
+  g.fillRect(0, yOf(160), C, 160);
+  // Decals are smooth vinyl
+  g.fillStyle = "rgb(70, 70, 70)";
+  g.textBaseline = "middle";
+  for (const x of [C * 0.25, C * 0.75]) {
+    g.save();
+    g.translate(x, yOf(478));
+    g.rotate(Math.PI / 2);
+    g.font = "600 20px 'Inter Tight', 'Segoe UI', sans-serif";
+    g.fillText("MACROPLASTIC V1", 0, 0);
+    g.restore();
   }
-  g.putImageData(img, 0, 0);
-  g.filter = "blur(1.2px)";
-  g.drawImage(canvas, 0, 0);
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-  texture.repeat.set(6, 20);
-  return texture;
+  return canvas;
 }
 
 // 2×2 twill carbon fibre weave
 function carbonTexture() {
-  const size = 256, cell = 16;
+  const size = 512, cell = 16;
   const canvas = document.createElement("canvas");
   canvas.width = canvas.height = size;
   const g = canvas.getContext("2d");
-  g.fillStyle = "#0e0e0e";
+  g.fillStyle = "#0b0b0c";
   g.fillRect(0, 0, size, size);
   for (let y = 0; y < size / cell; y++) {
     for (let x = 0; x < size / cell; x++) {
@@ -135,77 +205,93 @@ function carbonTexture() {
       const grad = across
         ? g.createLinearGradient(x * cell, 0, (x + 1) * cell, 0)
         : g.createLinearGradient(0, y * cell, 0, (y + 1) * cell);
-      grad.addColorStop(0, "#151515");
-      grad.addColorStop(0.5, "#3a3a3a");
-      grad.addColorStop(1, "#151515");
+      grad.addColorStop(0, "#121213");
+      grad.addColorStop(0.5, "#34353a");
+      grad.addColorStop(1, "#121213");
       g.fillStyle = grad;
-      g.fillRect(x * cell + 0.5, y * cell + 0.5, cell - 1, cell - 1);
+      g.fillRect(x * cell + 0.6, y * cell + 0.6, cell - 1.2, cell - 1.2);
     }
   }
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-  texture.repeat.set(3, 3);
-  texture.anisotropy = 8;
+  texture.repeat.set(2, 2);
+  texture.anisotropy = 16;
   return texture;
 }
 
+/* ---------- Geometry prep ---------- */
+
 /* Gets a part ready for painting:
-   - fin triangles go in their own material group (any triangle reaching out past the body is a fin;
+   - fin triangles go in their own material group (any triangle reaching out past the body;
      fins are a few big triangles that all touch the body at the root)
+   - one vertex per triangle corner, so the wrap-around seam can be stitched cleanly
    - UVs: around-the-body mapping for tubes, flat mapping for fins (STEP files carry no UVs)
-   Returns true if the part has fins. */
-export function prepareGeometry(geometry, { baseY, topY, bodyRadius }) {
-  const pos = geometry.attributes.position, index = geometry.index.array;
+   Returns the new geometry and whether it has fins. */
+export function prepareGeometry(source, { baseY, topY, bodyRadius }) {
+  const pos = source.attributes.position, index = source.index.array;
   const radius = (v) => Math.hypot(pos.getX(v), pos.getZ(v));
-  const body = [], fins = [], finVertex = new Uint8Array(pos.count);
+  const body = [], fins = [];
   for (let t = 0; t < index.length; t += 3) {
     const tri = [index[t], index[t + 1], index[t + 2]];
-    if (tri.some((v) => radius(v) > bodyRadius + 0.002)) {
-      fins.push(...tri);
-      tri.forEach((v) => { finVertex[v] = 1; });
-    } else body.push(...tri);
+    (tri.some((v) => radius(v) > bodyRadius + 0.002) ? fins : body).push(...tri);
   }
-
-  const uv = new Float32Array(pos.count * 2);
-  for (let i = 0; i < pos.count; i++) {
-    const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
-    const v = (y - baseY) / (topY - baseY);
-    if (finVertex[i]) {
-      uv[i * 2] = (Math.hypot(x, z) - bodyRadius) / 0.1 * 2; // across the span
-      uv[i * 2 + 1] = v * 12;                                 // and up the root
-    } else {
-      uv[i * 2] = Math.atan2(-z, x) / (Math.PI * 2) + 0.5;   // seam hides behind the single fin
-      uv[i * 2 + 1] = v;
-    }
-  }
-  geometry.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
-
-  if (!fins.length) return false;
-  geometry.setIndex([...body, ...fins]);
+  source.setIndex([...body, ...fins]);
+  const geometry = source.toNonIndexed();
   geometry.clearGroups();
   geometry.addGroup(0, body.length, 0);
-  geometry.addGroup(body.length, fins.length, 1);
-  return true;
+  if (fins.length) geometry.addGroup(body.length, fins.length, 1);
+
+  const p = geometry.attributes.position;
+  const uv = new Float32Array(p.count * 2);
+  for (let t = 0; t < p.count; t += 3) {
+    const isFin = t >= body.length;
+    const us = [];
+    for (let k = 0; k < 3; k++) {
+      const i = t + k, x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+      const v = (y - baseY) / (topY - baseY);
+      if (isFin) {
+        uv[i * 2] = ((Math.hypot(x, z) - bodyRadius) / 0.1) * 2; // across the span
+        uv[i * 2 + 1] = v * 12;                                   // and up the root
+      } else {
+        us.push(Math.atan2(-z, x) / (Math.PI * 2) + 0.5);
+        uv[i * 2 + 1] = v;
+      }
+    }
+    if (isFin) continue;
+    // A triangle straddling the seam gets its low side pushed past 1 (the texture repeats)
+    if (Math.max(...us) - Math.min(...us) > 0.5) for (let k = 0; k < 3; k++) if (us[k] < 0.5) us[k] += 1;
+    for (let k = 0; k < 3; k++) uv[(t + k) * 2] = us[k];
+  }
+  geometry.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
+  return { geometry, hasFins: fins.length > 0 };
 }
 
-// Materials for one scheme: [body, fins]
-const shared = {};
-export function liveryMaterials(livery) {
-  shared.bump ??= paintBump();
-  shared.carbon ??= carbonTexture();
+/* ---------- Materials ---------- */
+
+// [body, fins]. High detail on big screens, half size on phones.
+export function paintMaterials({ high = true } = {}) {
+  const width = high ? 2048 : 1024, height = high ? 4096 : 2048;
+  const texture = (canvas, srgb) => {
+    const t = new THREE.CanvasTexture(canvas);
+    if (srgb) t.colorSpace = THREE.SRGBColorSpace;
+    t.wrapS = THREE.RepeatWrapping;
+    t.anisotropy = 16;
+    return t;
+  };
   const body = new THREE.MeshPhysicalMaterial({
-    map: bodyTexture(livery),
-    roughness: 0.5 - livery.gloss * 0.25,
+    map: texture(colorSheet(width, height), true),
+    roughness: 1,
+    roughnessMap: texture(shineSheet(width / 2, height / 2), false),
     metalness: 0,
-    clearcoat: livery.gloss,
-    clearcoatRoughness: 0.28,
-    bumpMap: shared.bump,
-    bumpScale: 0.25,
-    envMapIntensity: 0.55,
+    bumpMap: texture(reliefSheet(width, height), false),
+    bumpScale: 0.6,
+    clearcoat: 0.35,
+    clearcoatRoughness: 0.35,
+    envMapIntensity: 0.7,
   });
-  const fin = livery.fin === "carbon"
-    ? new THREE.MeshPhysicalMaterial({ map: shared.carbon, roughness: 0.38, clearcoat: 0.8, clearcoatRoughness: 0.15 })
-    : new THREE.MeshPhysicalMaterial({ color: livery.fin, roughness: 0.45, clearcoat: 0.4 });
+  const fin = new THREE.MeshPhysicalMaterial({
+    map: carbonTexture(), roughness: 0.32, clearcoat: 0.9, clearcoatRoughness: 0.12, envMapIntensity: 0.8,
+  });
   return [body, fin];
 }

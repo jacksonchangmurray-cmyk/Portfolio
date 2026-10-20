@@ -80,26 +80,95 @@ a { color: inherit; }
 .in-tunnel .title h1 { font-size: clamp(26px, 2.6vw, 34px); }
 .title em { font-style: normal; font-weight: 400; color: var(--accent); }
 
-.modes {
+/* ---------- Bottom dock: switch views ---------- */
+.dock {
+  position: fixed;
+  left: calc((100% - var(--panel)) / 2);
+  bottom: 24px;
+  z-index: 7;
   display: flex;
-  padding: 4px;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
   border: 1px solid var(--line);
   border-radius: 999px;
-  background: rgba(22, 22, 20, 0.8);
-  backdrop-filter: blur(8px);
+  background: rgba(20, 20, 19, 0.88);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5);
+  transform: translateX(-50%);
 }
-.modes button {
-  padding: 9px 18px;
+.dock-back {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  color: var(--muted);
+  font-size: 18px;
+  text-decoration: none;
+  transition: color 0.3s, background 0.3s;
+}
+.dock-back:hover { color: var(--ink); background: var(--bg-2); }
+.dock-modes { display: flex; gap: 4px; padding: 3px; border-radius: 999px; background: var(--bg); }
+.dock-modes button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 20px;
   border: 0;
   border-radius: 999px;
   background: none;
   color: var(--muted);
-  font: 500 14px var(--sans);
+  font: 500 15px var(--sans);
   white-space: nowrap;
   cursor: pointer;
   transition: background 0.35s var(--ease), color 0.35s;
 }
-.modes button[aria-selected="true"] { background: var(--ink); color: var(--bg); }
+.dock-modes button:hover { color: var(--ink); }
+.dock-modes button[aria-selected="true"] { background: var(--ink); color: var(--bg); }
+.dock-modes svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.dock-action {
+  padding: 11px 18px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: none;
+  color: var(--ink);
+  font: 500 14px var(--sans);
+  cursor: pointer;
+  transition: border-color 0.3s;
+}
+.dock-action:hover { border-color: var(--ink); }
+
+/* "Click me!" tag on the Parts button until it's been tried once */
+.click-me {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 12px);
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--bg);
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translateX(-50%);
+  animation: nudge 1.6s var(--ease) infinite;
+}
+.click-me::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  border: 6px solid transparent;
+  border-top-color: var(--accent);
+  transform: translateX(-50%);
+}
+@keyframes nudge {
+  0%, 100% { transform: translate(-50%, 0); }
+  50% { transform: translate(-50%, -6px); }
+}
+.dock-modes button[aria-selected="true"] .click-me { display: none; }
 
 /* ---------- Side panel ---------- */
 .panel {
@@ -172,31 +241,6 @@ a { color: inherit; }
 .btn.ghost { padding: 9px 16px; border-color: var(--line); background: none; color: var(--ink); font-size: 13px; }
 .btn.ghost:hover { border-color: var(--ink); background: none; color: var(--ink); }
 
-/* Paint schemes */
-.swatches { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.swatch {
-  display: grid;
-  justify-items: center;
-  gap: 8px;
-  padding: 12px 8px 10px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: none;
-  color: var(--muted);
-  font: 500 13px var(--sans);
-  cursor: pointer;
-  transition: border-color 0.3s, color 0.3s;
-}
-.swatch:hover { color: var(--ink); }
-.swatch[aria-pressed="true"] { border-color: var(--accent); color: var(--ink); }
-.chip {
-  width: 22px;
-  height: 52px;
-  border-radius: 11px 11px 4px 4px;
-  background: linear-gradient(to bottom, var(--b) 0 30%, var(--c) 30% 38%, var(--a) 38%);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
-}
-
 /* Tunnel controls */
 .slider { display: grid; gap: 10px; font-size: 14px; }
 .slider span { display: flex; justify-content: space-between; gap: 12px; color: var(--muted); }
@@ -268,7 +312,6 @@ a { color: inherit; }
 .stability.good { color: #7fd99a; }
 .stability.warn { color: var(--accent); }
 
-.credit { margin-top: auto; padding-top: 16px; border-top: 1px solid var(--line); }
 
 /* ---------- Callouts over the 3D view ---------- */
 .leaders { position: fixed; inset: 0; z-index: 3; width: 100%; height: 100%; pointer-events: none; opacity: 0; transition: opacity 0.25s; }
@@ -339,7 +382,10 @@ a { color: inherit; }
   .title h1 { font-size: 34px; }
   .in-tunnel .title h1 { font-size: 22px; }
   .in-tunnel .kicker { display: none; }
-  .modes button { padding: 8px 12px; font-size: 13px; }
+  .dock { left: 50%; top: calc(58svh - 70px); bottom: auto; gap: 4px; padding: 4px; }
+  .dock-back { width: 38px; height: 38px; }
+  .dock-modes button { padding: 9px 13px; font-size: 14px; }
+  .dock-action { padding: 9px 12px; font-size: 13px; }
   .panel {
     position: relative;
     top: 58svh;
@@ -353,5 +399,5 @@ a { color: inherit; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .part-list button, .modes button, .btn, .segmented button, .callout { transition: none; animation: none; }
+  .part-list button, .dock-modes button, .btn, .segmented button, .callout, .click-me { transition: none; animation: none; }
 }

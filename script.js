@@ -36,12 +36,29 @@ if (motion) {
     setupMagnetic();
   }
   ScrollTrigger.sort();
-  if (document.fonts) document.fonts.ready.then(() => ScrollTrigger.refresh());
+  restorePosition();
+  if (document.fonts) document.fonts.ready.then(() => { ScrollTrigger.refresh(); restorePosition(); });
 } else {
   $(".hero-name").style.visibility = "visible";
 }
 
 /* ---------- Helpers ---------- */
+
+// Coming back from a demo page lands you where you left off (or at the section in the link),
+// even though the scroll animations change the page's height after it loads
+addEventListener("pagehide", () => {
+  try { sessionStorage.setItem("home-scroll", String(scrollY)); } catch {}
+});
+function restorePosition() {
+  let saved = null;
+  try { saved = sessionStorage.getItem("home-scroll"); } catch {}
+  const back = performance.getEntriesByType("navigation")[0]?.type === "back_forward";
+  const target = back && saved !== null ? Number(saved) : location.hash ? document.querySelector(location.hash) : null;
+  if (target === null) return;
+  if (lenis) lenis.scrollTo(target, { immediate: true, force: true });
+  else if (typeof target === "number") scrollTo(0, target);
+  else target.scrollIntoView();
+}
 
 // The editor only loads for ?edit, so visitors never download it
 function loadEditor() {
