@@ -208,15 +208,25 @@ export function createTunnel({ scene, radiusAt, baseY, topY, small, onStats }) {
   }
 
   /* Field sampling */
+  // Bilinear, but only from air cells: blending in the model's zero-speed cells
+  // would make smoke stutter along the stair-stepped outline
   function sampleVelocity(x, y, out) {
     const fx = (x - X0) / dx - 0.5, fy = (y - Y0) / dx - 0.5;
     const i = Math.floor(fx), j = Math.floor(fy);
-    if (i < 0 || j < 0 || i >= nx - 1 || j >= ny - 1) { out[0] = uIn(); out[1] = 0; return false; }
+    if (i < 0 || j < 0 || i >= nx - 1 || j >= ny - 1) { out[0] = uIn(); out[1] = 0; return; }
     const tx = fx - i, ty = fy - j, c = j * nx + i;
-    const { ux, uy } = state;
-    out[0] = (ux[c] * (1 - tx) + ux[c + 1] * tx) * (1 - ty) + (ux[c + nx] * (1 - tx) + ux[c + nx + 1] * tx) * ty;
-    out[1] = (uy[c] * (1 - tx) + uy[c + 1] * tx) * (1 - ty) + (uy[c + nx] * (1 - tx) + uy[c + nx + 1] * tx) * ty;
-    return !state.solid[c];
+    const { ux, uy, solid } = state;
+    const corners = [c, c + 1, c + nx, c + nx + 1];
+    const weights = [(1 - tx) * (1 - ty), tx * (1 - ty), (1 - tx) * ty, tx * ty];
+    let u = 0, v = 0, total = 0;
+    for (let k = 0; k < 4; k++) {
+      if (solid[corners[k]]) continue;
+      u += ux[corners[k]] * weights[k];
+      v += uy[corners[k]] * weights[k];
+      total += weights[k];
+    }
+    out[0] = total > 1e-6 ? u / total : 0;
+    out[1] = total > 1e-6 ? v / total : 0;
   }
 
   function fieldValue(c) {
@@ -283,13 +293,15 @@ export function createTunnel({ scene, radiusAt, baseY, topY, small, onStats }) {
       const { xs, ys } = seed;
       for (let p = 0; p < xs.length - 1 && segment < maxSegments; p++) {
         const gap = Math.hypot(xs[p + 1] - xs[p], ys[p + 1] - ys[p]);
-        if (gap > 0.06) continue;
+        if (gap > 0.05) continue;
         const o = segment * 6;
         smokePositions[o] = xs[p]; smokePositions[o + 1] = ys[p]; smokePositions[o + 2] = 0.004;
         smokePositions[o + 3] = xs[p + 1]; smokePositions[o + 4] = ys[p + 1]; smokePositions[o + 5] = 0.004;
-        // Fade near the inlet and the outlet
-        // Slightly brighter than white so the threads catch the glow pass
-        const fade = Math.min(1, (xs[p] - X0) / 0.15, (X1 - xs[p]) / 0.5) * 1.25;
+        // Fade near the inlet and outlet, and where the wake stretches a thread thin,
+        // so torn smoke dissolves instead of breaking into confetti.
+        // Slightly brighter than white so the threads catch the glow pass.
+        const stretch = Math.max(0, 1 - (gap - EMIT_EVERY * dx * 1.6) / 0.025);
+        const fade = Math.min(1, (xs[p] - X0) / 0.15, (X1 - xs[p]) / 0.5, stretch) * 1.25;
         for (let k = 0; k < 6; k += 3) { smokeColors[o + k] = fade * 0.95; smokeColors[o + k + 1] = fade * 0.97; smokeColors[o + k + 2] = fade; }
         segment++;
       }
@@ -345,7 +357,12 @@ export function createTunnel({ scene, radiusAt, baseY, topY, small, onStats }) {
         const toward = Math.cos(angle - roll); // +1 = facing the slice's "up" side
         const R = Math.max(radiusAt(Math.min(topY, Math.max(baseY, s))), 0.004);
         const reach = r > R + 0.0005 ? R + (r - R) * Math.abs(toward) : R;
-        const up = pressureAt(s, reach + dx), down = pressureAt(s, -(reach + dx));
+        // Average a few samples along the body to smooth out the grid's stair steps
+        let up = 0, down = 0;
+        for (const ds of [-1.5 * dx, 0, 1.5 * dx]) {
+          up += pressureAt(s + ds, reach + dx) / 3;
+          down += pressureAt(s + ds, -(reach + dx)) / 3;
+        }
         const cp = up * (1 + toward) * 0.5 + down * (1 - toward) * 0.5;
         const k = Math.max(0, Math.min(255, (((cp - lo) / (hi - lo)) * 255) | 0)) * 3;
         color.setXYZ(v, (map[k] / 255) ** 2.2, (map[k + 1] / 255) ** 2.2, (map[k + 2] / 255) ** 2.2);
